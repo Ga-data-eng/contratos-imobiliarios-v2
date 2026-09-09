@@ -1,0 +1,50 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    /* Impede o "pulo" do layout quando a barra de rolagem aparece. */
+    scrollbar-gutter: stable;
+  }
+
+  body {
+    @apply bg-slate-100 text-slate-900 antialiased;
+    /* Respeita a área segura de aparelhos com notch. */
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  /* Fonte >= 16px nos campos evita o zoom automático do iOS ao focar. */
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
+@layer components {
+  /* Alvo de toque mínimo de 44x44px exigido para uso no celular. */
+  .toque {
+    @apply min-h-[44px] min-w-[44px];
+  }
+
+  .campo {
+    @apply toque w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900
+           shadow-sm outline-none transition
+           focus:border-marca-500 focus:ring-2 focus:ring-marca-200
+           disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500;
+  }
+
+  .rotulo {
+    @apply mb-1 block text-sm font-medium text-slate-700;
+  }
+
+  .cartao {
+    @apply rounded-xl border border-slate-200 bg-white shadow-sm;
+  }
+}
+
+/* O canvas de assinatura não deve rolar a página quando o dedo desenha. */
+.canvas-assinatura {
+  touch-action: none;
+}

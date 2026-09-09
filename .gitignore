@@ -1,0 +1,19 @@
+node_modules/
+dist/
+build/
+
+# Variáveis de ambiente — nunca versionar
+.env
+.env.*
+!.env.example
+
+# Banco de desenvolvimento (SQLite)
+*.db
+*.db-journal
+
+*.log
+*.tsbuildinfo
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

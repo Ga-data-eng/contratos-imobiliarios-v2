@@ -1,0 +1,33 @@
+# PostgreSQL local para quem quiser rodar o projeto no mesmo banco de produção.
+#
+# O desenvolvimento padrão usa SQLite e NÃO precisa deste arquivo.
+# Para usar Postgres:
+#   1. docker compose up -d
+#   2. em backend/prisma/schema.prisma, troque provider = "sqlite" por "postgresql"
+#   3. em backend/.env:
+#        DATABASE_PROVIDER="postgresql"
+#        DATABASE_URL="postgresql://postgres:postgres@localhost:5432/contratos_imobiliarios?schema=public"
+#   4. npm --prefix backend run prisma:migrate -- --name init
+#   5. npm --prefix backend run seed
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: contratos-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: contratos_imobiliarios
+    ports:
+      - '5432:5432'
+    volumes:
+      - dados-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d contratos_imobiliarios']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  dados-postgres:

@@ -1,0 +1,217 @@
+// =============================================================================
+// Schema Prisma - Controle de Protocolo de Contratos de Credito Imobiliario
+// =============================================================================
+//
+// PORTABILIDADE SQLite <-> PostgreSQL
+// -----------------------------------
+// Este schema foi escrito para rodar sem alteracoes nos dois bancos:
+//   * desenvolvimento local -> provider = "sqlite"     (nao exige servidor)
+//   * producao              -> provider = "postgresql"
+//
+// Para migrar para PostgreSQL basta trocar a linha `provider` abaixo para
+// "postgresql", ajustar DATABASE_URL/DATABASE_PROVIDER no .env e rodar
+// `npm run prisma:migrate`.
+//
+// Por esse motivo os campos de dominio fechado (cargo, status, tipo, origem)
+// sao `String` em vez de `enum` nativo: o SQLite nao suporta enums. Os valores
+// permitidos estao centralizados em `src/lib/constants.ts` e sao validados com
+// Zod em todas as rotas de escrita, entao a garantia de dominio fechado
+// continua existindo na camada de aplicacao.
+// =============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+/// Usuario do sistema (gerente da agencia). Login sem senha: identificado
+/// unicamente pelo e-mail. O `cargo` define as permissoes de assinatura.
+model Usuario {
+  id           String   @id @default(uuid())
+  nomeCompleto String
+  email        String   @unique
+  /// GERENTE_PF_PRIME | GNS_SUPERVISOR | GERENTE_ADM | GERENTE_GERAL
+  cargo        String
+  ativo        Boolean  @default(true)
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  clientesResponsavel Cliente[]         @relation("GerenteResponsavel")
+  movimentacoes       Movimentacao[]    @relation("UsuarioMovimentacao")
+  assinaturas         Assinatura[]      @relation("UsuarioAssinatura")
+  mudancasStatus      StatusHistorico[] @relation("UsuarioStatus")
+  logs                LogAuditoria[]
+
+  @@index([email])
+  @@map("usuarios")
+}
+
+/// Parceiro imobiliario (imobiliaria / corretora) vinculado a empreendimentos.
+model ParceiroImobiliario {
+  id       String   @id @default(uuid())
+  nome     String
+  contato  String?
+  criadoEm DateTime @default(now())
+
+  empreendimentos Empreendimento[]
+
+  @@map("parceiros_imobiliarios")
+}
+
+/// Empreendimento imobiliario. Sempre pertence a um parceiro imobiliario.
+model Empreendimento {
+  id                    String   @id @default(uuid())
+  nome                  String
+  endereco              String?
+  parceiroImobiliarioId String
+  criadoEm              DateTime @default(now())
+
+  parceiro ParceiroImobiliario @relation(fields: [parceiroImobiliarioId], references: [id])
+  clientes Cliente[]
+
+  @@index([parceiroImobiliarioId])
+  @@map("empreendimentos")
+}
+
+/// Cliente / contrato controlado pela agencia.
+/// O contrato fisico e representado por este registro: e nele que vivem o
+/// status atual, as movimentacoes de protocolo e as 4 assinaturas.
+model Cliente {
+  id             String @id @default(uuid())
+  nomeCompleto   String
+  numeroContrato String @unique
+  numeroProposta String
+
+  gerenteResponsavelId String
+  /// EMPREENDIMENTO | CAPTACAO_LIVRE
+  origem               String
+  /// Obrigatorio quando origem = EMPREENDIMENTO; nulo em CAPTACAO_LIVRE.
+  empreendimentoId     String?
+
+  /// Status fisico atual do contrato dentro da agencia.
+  /// Nulo enquanto nao houver protocolo de entrada registrado.
+  statusAtual String?
+  /// Momento em que o status atual passou a valer (base do alerta de contratos parados).
+  statusDesde DateTime?
+
+  observacoes  String?
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  gerenteResponsavel Usuario           @relation("GerenteResponsavel", fields: [gerenteResponsavelId], references: [id])
+  empreendimento     Empreendimento?   @relation(fields: [empreendimentoId], references: [id])
+  movimentacoes      Movimentacao[]
+  assinaturas        Assinatura[]
+  historicoStatus    StatusHistorico[]
+
+  @@index([numeroContrato])
+  @@index([numeroProposta])
+  @@index([statusAtual])
+  @@index([gerenteResponsavelId])
+  @@index([empreendimentoId])
+  @@map("clientes")
+}
+
+/// Protocolo de entrada/saida do contrato fisico na agencia. Registro imutavel.
+model Movimentacao {
+  id        String @id @default(uuid())
+  clienteId String
+  /// ENTRADA | SAIDA
+  tipo      String
+
+  /// ENTRADA: nome de quem entregou o contrato na agencia.
+  /// SAIDA:   nome do usuario da agencia que entregou (preenchido pelo sistema).
+  entreguePor String
+  /// ENTRADA: usuario logado que recebeu na agencia.
+  /// SAIDA:   usuario logado que realizou a entrega.
+  usuarioId   String
+  /// SAIDA: nome de quem recebeu (cliente, correspondente, cartorio...).
+  recebidoPor String?
+
+  /// Origem (na entrada) ou destino/motivo (na saida).
+  origemDestino String
+  observacoes   String?
+  dataHora      DateTime @default(now())
+
+  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  usuario Usuario @relation("UsuarioMovimentacao", fields: [usuarioId], references: [id])
+
+  @@index([clienteId])
+  @@index([dataHora])
+  @@map("movimentacoes")
+}
+
+/// Uma das 4 assinaturas exigidas por contrato. As 4 linhas sao criadas como
+/// PENDENTE no cadastro do cliente; uma vez ASSINADO o registro e imutavel.
+model Assinatura {
+  id        String @id @default(uuid())
+  clienteId String
+  /// GERENTE_GERAL | GERENTE_ADM | SUPERVISOR | CLIENTE
+  tipo      String
+
+  /// PENDENTE | ASSINADO
+  status           String  @default("PENDENTE")
+  responsavelNome  String?
+  responsavelEmail String?
+  /// Usuario do sistema que capturou a assinatura (nulo enquanto pendente).
+  usuarioId        String?
+  /// Imagem PNG da assinatura manuscrita, em data URL base64.
+  assinaturaDigital String?
+  dataHora          DateTime?
+
+  criadoEm DateTime @default(now())
+
+  cliente Cliente  @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  usuario Usuario? @relation("UsuarioAssinatura", fields: [usuarioId], references: [id])
+
+  @@unique([clienteId, tipo])
+  @@index([clienteId])
+  @@map("assinaturas")
+}
+
+/// Trilha de mudancas de status do contrato. Registro imutavel.
+model StatusHistorico {
+  id             String   @id @default(uuid())
+  clienteId      String
+  statusAnterior String?
+  statusNovo     String
+  usuarioId      String
+  motivo         String?
+  observacoes    String?
+  dataHora       DateTime @default(now())
+
+  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  usuario Usuario @relation("UsuarioStatus", fields: [usuarioId], references: [id])
+
+  @@index([clienteId])
+  @@index([dataHora])
+  @@map("status_historico")
+}
+
+/// Log de auditoria append-only. Nao existe endpoint de update/delete e o
+/// client Prisma bloqueia essas operacoes em runtime (src/lib/prisma.ts).
+model LogAuditoria {
+  id              String   @id @default(uuid())
+  usuarioId       String?
+  usuarioNome     String
+  usuarioEmail    String
+  usuarioCargo    String
+  acao            String
+  entidadeAfetada String
+  entidadeId      String?
+  detalhes        String?
+  ip              String?
+  userAgent       String?
+  dataHora        DateTime @default(now())
+
+  usuario Usuario? @relation(fields: [usuarioId], references: [id])
+
+  @@index([dataHora])
+  @@index([usuarioId])
+  @@index([entidadeAfetada, entidadeId])
+  @@map("logs_auditoria")
+}
