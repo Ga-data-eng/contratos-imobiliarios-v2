@@ -24,8 +24,13 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  // DIRECT_URL e opcional: so precisa existir quando DATABASE_URL passa por um
+  // pooler (ex.: o endpoint "-pooler" da Neon). O Prisma Migrate usa DIRECT_URL;
+  // a aplicacao em runtime usa DATABASE_URL. Em Postgres local (sem pooler) as
+  // duas podem apontar para a mesma string.
+  directUrl = env("DIRECT_URL")
 }
 
 /// Usuario do sistema (gerente da agencia). Login sem senha: identificado

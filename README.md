@@ -20,7 +20,7 @@ Responde, a qualquer momento:
 - [Instalação rápida](#instalação-rápida)
 - [Variáveis de ambiente](#variáveis-de-ambiente)
 - [Rodando em desenvolvimento](#rodando-em-desenvolvimento)
-- [Trocando SQLite por PostgreSQL](#trocando-sqlite-por-postgresql)
+- [Trocando de banco de dados](#trocando-de-banco-de-dados)
 - [Usuários de exemplo](#usuários-de-exemplo)
 - [Modelo de dados](#modelo-de-dados)
 - [Regras de negócio](#regras-de-negócio)
@@ -41,21 +41,21 @@ Responde, a qualquer momento:
 | Backend | Node.js + Express + TypeScript |
 | Validação | Zod em todas as rotas de escrita |
 | ORM | Prisma |
-| Banco | SQLite em desenvolvimento · PostgreSQL em produção (mesmo schema) |
+| Banco | PostgreSQL (Neon serverless neste ambiente; também roda em Postgres local ou SQLite) |
 | PDF | PDFKit (histórico com as imagens das assinaturas embutidas) |
 | Sessão | JWT (`Authorization: Bearer`) |
 
-### Por que SQLite no desenvolvimento
+### Sobre o banco de dados
 
-O prompt original pedia PostgreSQL. O schema Prisma foi escrito para rodar **sem alteração** nos
-dois bancos, e o padrão de desenvolvimento é SQLite para que o projeto suba sem nenhum servidor
-instalado. Migrar para PostgreSQL é uma troca de uma linha — ver
-[Trocando SQLite por PostgreSQL](#trocando-sqlite-por-postgresql).
+Este ambiente está configurado com **Neon** (Postgres serverless) — ver `backend/.env`. O schema
+Prisma também roda **sem alteração de código** em Postgres local ou em SQLite; só troca a
+`DATABASE_URL`/`DIRECT_URL` e, para SQLite, o `provider` do datasource. Ver
+[Trocando de banco de dados](#trocando-de-banco-de-dados).
 
-A única consequência dessa portabilidade: campos de domínio fechado (cargo, status, origem, tipo)
-são `String` no banco em vez de `enum` nativo, porque o SQLite não suporta enums. Os valores
-permitidos ficam centralizados em [`backend/src/lib/constants.ts`](backend/src/lib/constants.ts) e
-são validados com Zod em **todas** as rotas de escrita — a garantia de domínio fechado continua
+Por causa dessa portabilidade, campos de domínio fechado (cargo, status, origem, tipo) são
+`String` no banco em vez de `enum` nativo — o SQLite não suporta enums. Os valores permitidos
+ficam centralizados em [`backend/src/lib/constants.ts`](backend/src/lib/constants.ts) e são
+validados com Zod em **todas** as rotas de escrita — a garantia de domínio fechado continua
 existindo, na camada de aplicação.
 
 ---
@@ -105,8 +105,9 @@ em desenvolvimento — o Vite faz proxy de `/api` para a porta 3333.
 
 | Variável | Padrão | Descrição |
 |---|---|---|
-| `DATABASE_PROVIDER` | `sqlite` | `sqlite` ou `postgresql`. Ajusta a busca case-insensitive. |
-| `DATABASE_URL` | `file:./dev.db` | String de conexão do Prisma. |
+| `DATABASE_PROVIDER` | `postgresql` | `postgresql` ou `sqlite`. Ajusta a busca case-insensitive. |
+| `DATABASE_URL` | *(Neon, endpoint `-pooler`)* | String de conexão usada pela aplicação em runtime. |
+| `DIRECT_URL` | *(Neon, endpoint direto)* | String de conexão usada só pelo Prisma CLI (migrate/studio). Em Postgres sem pooler, pode ser igual a `DATABASE_URL`. Não existe em SQLite. |
 | `PORT` | `3333` | Porta da API. |
 | `NODE_ENV` | `development` | Em `production`, exige `JWT_SECRET` com 32+ caracteres. |
 | `JWT_SECRET` | *(dev tem padrão)* | Segredo do token de sessão. **Gere um valor aleatório em produção.** |
@@ -138,27 +139,55 @@ endereço.
 
 ---
 
-## Trocando SQLite por PostgreSQL
+## Trocando de banco de dados
 
-1. Suba um Postgres (`docker compose up -d` usa o `docker-compose.yml` da raiz) ou aponte para um
-   serviço gerenciado.
-2. Em `backend/prisma/schema.prisma`, no bloco `datasource db`, troque:
-   ```prisma
-   provider = "sqlite"      →      provider = "postgresql"
-   ```
-3. Em `backend/.env`:
+### Para Neon (Postgres serverless) — configuração atual deste ambiente
+
+1. Crie um projeto em [console.neon.tech](https://console.neon.tech) e abra **Connect** /
+   **Connection string**.
+2. Em `backend/.env`, use o endpoint com `-pooler` em `DATABASE_URL` (para a aplicação) e o mesmo
+   endpoint **sem** `-pooler` em `DIRECT_URL` (para o Prisma Migrate):
    ```env
-   DATABASE_PROVIDER="postgresql"
-   DATABASE_URL="postgresql://postgres:postgres@localhost:5432/contratos_imobiliarios?schema=public"
+   DATABASE_URL="postgresql://usuario:senha@ep-xxxx-pooler.regiao.aws.neon.tech/neondb?sslmode=require&channel_binding=require&pgbouncer=true"
+   DIRECT_URL="postgresql://usuario:senha@ep-xxxx.regiao.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
    ```
-4. Apague `backend/prisma/migrations/` (o histórico de migração é por banco) e rode:
+3. `backend/prisma/schema.prisma` já usa `provider = "postgresql"` com `directUrl` — nenhuma
+   alteração de schema é necessária.
+4. Rode as migrações e o seed:
+   ```bash
+   npm --prefix backend run prisma:deploy   # aplica as migrações existentes (sem shadow database)
+   npm --prefix backend run seed
+   ```
+
+### Para PostgreSQL local
+
+1. Suba um Postgres (`docker compose up -d` usa o `docker-compose.yml` da raiz, ou uma instalação
+   local).
+2. Em `backend/.env`, aponte `DATABASE_URL` e `DIRECT_URL` para a mesma string:
+   ```env
+   DATABASE_URL="postgresql://usuario:senha@localhost:5432/contratos_imobiliarios?schema=public"
+   DIRECT_URL="postgresql://usuario:senha@localhost:5432/contratos_imobiliarios?schema=public"
+   ```
+3. Rode:
    ```bash
    npm --prefix backend run prisma:migrate -- --name init
    npm --prefix backend run seed
    ```
 
-Nenhuma alteração de código é necessária: o helper `contemTexto()` já adiciona
-`mode: 'insensitive'` automaticamente quando o provider é PostgreSQL.
+### Para SQLite (não exige nenhum servidor)
+
+1. Em `backend/prisma/schema.prisma`, no bloco `datasource db`, troque `provider = "postgresql"`
+   por `provider = "sqlite"` e remova a linha `directUrl` (o SQLite não usa).
+2. Em `backend/.env`: `DATABASE_PROVIDER="sqlite"` e `DATABASE_URL="file:./dev.db"` (remova
+   `DIRECT_URL`).
+3. Apague `backend/prisma/migrations/` (o histórico de migração é por provider) e rode:
+   ```bash
+   npm --prefix backend run prisma:migrate -- --name init
+   npm --prefix backend run seed
+   ```
+
+Em qualquer um dos três casos, nenhuma alteração de código de aplicação é necessária: o helper
+`contemTexto()` já adiciona `mode: 'insensitive'` automaticamente quando o provider é PostgreSQL.
 
 ---
 
@@ -400,7 +429,7 @@ login, para que o usuário não confunda a facilidade de acesso com segurança.
 .
 ├── backend/
 │   ├── prisma/
-│   │   ├── schema.prisma          # modelo de dados (portável SQLite/Postgres)
+│   │   ├── schema.prisma          # modelo de dados (Postgres/Neon; portável para SQLite)
 │   │   ├── migrations/
 │   │   ├── seed.ts                # dados de exemplo
 │   │   └── assinatura-demo.ts     # gerador de PNG das assinaturas do seed
