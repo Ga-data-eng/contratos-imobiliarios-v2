@@ -43,7 +43,7 @@ model Usuario {
   id           String   @id @default(uuid())
   nomeCompleto String
   email        String   @unique
-  /// GERENTE_PF_PRIME | GNS_SUPERVISOR | GERENTE_ADM | GERENTE_GERAL
+  /// GERENTE_PF_PRIME | GNS | SUPERVISOR | GERENTE_ADM | GERENTE_GERAL
   cargo        String
   ativo        Boolean  @default(true)
   criadoEm     DateTime @default(now())

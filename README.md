@@ -200,7 +200,7 @@ Criados pelo seed. **O login não usa senha** — basta o e-mail (ver
 |---|---|---|
 | `ana.ribeiro@exemplo.com.br` | GERENTE GERAL | Gerente Geral, Cliente |
 | `carlos.nunes@exemplo.com.br` | GERENTE ADM | Gerente ADM, Cliente |
-| `fernanda.souza@exemplo.com.br` | GNS E SUPERVISOR | Supervisor, Cliente |
+| `fernanda.souza@exemplo.com.br` | SUPERVISOR | Supervisor, Cliente |
 | `marcos.alves@exemplo.com.br` | GERENTE PF PRIME | Cliente |
 | `juliana.dias@exemplo.com.br` | GERENTE PF PRIME | Cliente |
 
@@ -279,7 +279,7 @@ Quem controla o quê:
 |---|---|
 | Gerente ADM | GERENTE ADM |
 | Gerente Geral | GERENTE GERAL |
-| Supervisor | GNS E SUPERVISOR |
+| Supervisor | SUPERVISOR (GNS é um cargo à parte, não assina este campo) |
 | Cliente | qualquer cargo — o cliente assina presencialmente no aparelho do gerente, e o sistema grava o nome do cliente **e** quem operou a coleta |
 
 **Saída antecipada.** Se o contrato ainda não tem as 4 assinaturas, a saída não é simplesmente

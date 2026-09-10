@@ -32,7 +32,7 @@ const USUARIOS = [
   {
     nomeCompleto: 'Fernanda Lima Souza',
     email: 'fernanda.souza@exemplo.com.br',
-    cargo: 'GNS_SUPERVISOR',
+    cargo: 'SUPERVISOR',
   },
   {
     nomeCompleto: 'Marcos Vinicius Alves',
@@ -99,7 +99,7 @@ async function main() {
   }
   const gerenteGeral = porChave.GERENTE_GERAL;
   const gerenteAdm = porChave.GERENTE_ADM;
-  const supervisor = porChave.GNS_SUPERVISOR;
+  const supervisor = porChave.SUPERVISOR;
   const marcos = porChave['marcos.alves@exemplo.com.br'];
   const juliana = porChave['juliana.dias@exemplo.com.br'];
 

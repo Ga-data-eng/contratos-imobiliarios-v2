@@ -8,7 +8,8 @@
 
 export const CARGOS = [
   'GERENTE_PF_PRIME',
-  'GNS_SUPERVISOR',
+  'GNS',
+  'SUPERVISOR',
   'GERENTE_ADM',
   'GERENTE_GERAL',
 ] as const;
@@ -16,7 +17,8 @@ export type Cargo = (typeof CARGOS)[number];
 
 export const CARGO_LABEL: Record<Cargo, string> = {
   GERENTE_PF_PRIME: 'GERENTE PF PRIME',
-  GNS_SUPERVISOR: 'GNS E SUPERVISOR',
+  GNS: 'GNS',
+  SUPERVISOR: 'SUPERVISOR',
   GERENTE_ADM: 'GERENTE ADM',
   GERENTE_GERAL: 'GERENTE GERAL',
 };
@@ -76,7 +78,7 @@ export type TipoAssinatura = (typeof TIPOS_ASSINATURA)[number];
 export const TIPO_ASSINATURA_LABEL: Record<TipoAssinatura, string> = {
   GERENTE_ADM: 'Gerente ADM',
   GERENTE_GERAL: 'Gerente Geral',
-  SUPERVISOR: 'Supervisor (GNS e Supervisor)',
+  SUPERVISOR: 'Supervisor',
   CLIENTE: 'Cliente',
 };
 
@@ -106,7 +108,8 @@ export const STATUS_AGUARDANDO_POR_ASSINATURA: Record<TipoAssinatura, StatusCont
 export const CARGOS_AUTORIZADOS_POR_ASSINATURA: Record<TipoAssinatura, Cargo[]> = {
   GERENTE_ADM: ['GERENTE_ADM'],
   GERENTE_GERAL: ['GERENTE_GERAL'],
-  SUPERVISOR: ['GNS_SUPERVISOR'],
+  // GNS e SUPERVISOR sao cargos distintos: apenas SUPERVISOR assina este campo.
+  SUPERVISOR: ['SUPERVISOR'],
   CLIENTE: [...CARGOS],
 };
 
