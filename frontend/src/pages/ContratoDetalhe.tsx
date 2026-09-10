@@ -22,10 +22,13 @@ import { dataHora, haQuantoTempo } from '../lib/formato';
 import {
   CARGO_LABEL,
   ORIGEM_LABEL,
+  STATUS_FLUXO_CARTORIO_WCPS,
+  STATUS_LIBERADOS_PARA_SAIDA,
   STATUS_MANUAIS,
   TIPOS_ASSINATURA,
   TIPO_ASSINATURA_LABEL,
   rotuloStatus,
+  type StatusContrato,
 } from '../lib/dominio';
 import type { ContratoDetalhado } from '../lib/tipos';
 
@@ -80,6 +83,9 @@ export default function ContratoDetalhe() {
         <Link to={`/contratos/${c.id}/assinaturas`}>
           <Botao>Assinaturas ({assinadas}/4)</Botao>
         </Link>
+        <Link to={`/contratos/${c.id}/cartorio-wcps`}>
+          <Botao variante="secundario">Pagamento ao Vendedor</Botao>
+        </Link>
         <Link to={`/contratos/${c.id}/historico`}>
           <Botao variante="secundario">Histórico</Botao>
         </Link>
@@ -87,7 +93,7 @@ export default function ContratoDetalhe() {
           <IconePdf className="h-4 w-4" />
           PDF
         </Botao>
-        {c.statusAtual !== 'SAIDA_DA_AGENCIA' && (
+        {c.statusAtual !== 'SAIDA_DA_AGENCIA' && c.statusAtual !== 'FINALIZADO' && (
           <Link to={`/contratos/${c.id}/editar`}>
             <Botao variante="secundario">Editar</Botao>
           </Link>
@@ -187,8 +193,10 @@ export default function ContratoDetalhe() {
         <TituloSecao>Protocolo</TituloSecao>
         {naAgencia ? (
           <div className="space-y-4">
-            <AlterarStatus clienteId={c.id} statusAtual={c.statusAtual!} aoConcluir={recarregar} />
-            <RegistrarSaida clienteId={c.id} assinadas={assinadas} aoConcluir={recarregar} />
+            {!STATUS_FLUXO_CARTORIO_WCPS.includes(c.statusAtual as StatusContrato) && (
+              <AlterarStatus clienteId={c.id} statusAtual={c.statusAtual!} aoConcluir={recarregar} />
+            )}
+            <RegistrarSaida clienteId={c.id} statusAtual={c.statusAtual!} aoConcluir={recarregar} />
           </div>
         ) : (
           <RegistrarEntrada clienteId={c.id} aoConcluir={recarregar} />
@@ -418,11 +426,11 @@ function AlterarStatus({
 
 function RegistrarSaida({
   clienteId,
-  assinadas,
+  statusAtual,
   aoConcluir,
 }: {
   clienteId: string;
-  assinadas: number;
+  statusAtual: string;
   aoConcluir: () => void;
 }) {
   const toast = useToast();
@@ -433,7 +441,9 @@ function RegistrarSaida({
   const [confirmando, setConfirmando] = useState(false);
   const [enviando, setEnviando] = useState(false);
 
-  const incompleto = assinadas < 4;
+  // Espelha a regra do backend (STATUS_LIBERADOS_PARA_SAIDA): fora desses
+  // status a saída é antecipada/excepcional e exige justificativa.
+  const incompleto = !STATUS_LIBERADOS_PARA_SAIDA.includes(statusAtual as StatusContrato);
 
   function abrir(evento: FormEvent) {
     evento.preventDefault();
@@ -464,8 +474,9 @@ function RegistrarSaida({
 
         {incompleto && (
           <Alerta tipo="aviso">
-            Ainda faltam {4 - assinadas} assinatura(s). A saída só é aceita com uma justificativa
-            explícita (ex.: devolução ao cartório para correção).
+            O contrato está em <strong>{rotuloStatus(statusAtual)}</strong>, uma etapa que ainda
+            não libera saída normal. A saída só é aceita com uma justificativa explícita (ex.:
+            devolução ao cartório para correção).
           </Alerta>
         )}
 

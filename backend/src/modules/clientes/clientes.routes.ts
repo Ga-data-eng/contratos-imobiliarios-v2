@@ -5,7 +5,7 @@ import { ah } from '../../lib/asyncHandler';
 import { autenticar } from '../../middleware/auth';
 import { auditar } from '../../lib/audit';
 import { badRequest, notFound } from '../../lib/errors';
-import { ORIGENS_CLIENTE, STATUS_CONTRATO } from '../../lib/constants';
+import { ORIGENS_CLIENTE, STATUS_CONTRATO, type StatusContrato } from '../../lib/constants';
 import { criarAssinaturasPendentes } from '../../services/contrato.service';
 
 export const clientesRouter = Router();
@@ -196,9 +196,10 @@ clientesRouter.put(
     const atual = await prisma.cliente.findUnique({ where: { id: req.params.id } });
     if (!atual) throw notFound('Cliente/contrato não encontrado.');
 
-    if (atual.statusAtual === 'SAIDA_DA_AGENCIA') {
+    const bloqueados: StatusContrato[] = ['SAIDA_DA_AGENCIA', 'FINALIZADO'];
+    if (bloqueados.includes(atual.statusAtual as StatusContrato)) {
       throw badRequest(
-        'Contrato já finalizado (saída registrada); os dados cadastrais estão travados.',
+        'Contrato já finalizado (saída registrada ou processo concluído); os dados cadastrais estão travados.',
       );
     }
 

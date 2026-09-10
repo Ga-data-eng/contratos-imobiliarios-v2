@@ -154,12 +154,7 @@ async function main() {
       entradaDias: 12,
       entreguePor: 'Cartório de Registro de Imóveis — 2º Ofício',
       origem: 'Cartório',
-      statusFinal: 'SAIDA_DA_AGENCIA',
-      saida: {
-        recebidoPor: 'Roberto Carvalho Menezes (cliente)',
-        destino: 'Entrega ao cliente',
-        dias: 2,
-      },
+      statusFinal: 'FINALIZADO',
     },
     {
       nomeCompleto: 'Patrícia Gomes Ferreira',
@@ -171,7 +166,7 @@ async function main() {
       entradaDias: 6,
       entreguePor: 'Imobiliária Horizonte — Sr. Elias',
       origem: 'Imobiliária',
-      statusFinal: 'AGUARDANDO_ENVIO_DEVOLUCAO',
+      statusFinal: 'AGUARDANDO_PAGAMENTO_WCPS',
     },
     {
       nomeCompleto: 'Diego Fernandes Rocha',

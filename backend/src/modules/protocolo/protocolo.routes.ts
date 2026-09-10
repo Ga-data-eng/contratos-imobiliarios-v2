@@ -6,6 +6,7 @@ import { autenticar, sessao } from '../../middleware/auth';
 import { auditar } from '../../lib/audit';
 import { badRequest, conflict, notFound } from '../../lib/errors';
 import {
+  STATUS_FLUXO_CARTORIO_WCPS,
   STATUS_LABEL,
   STATUS_LIBERADOS_PARA_SAIDA,
   STATUS_MANUAIS,
@@ -196,6 +197,12 @@ protocoloRouter.patch(
     if (cliente.statusAtual === 'SAIDA_DA_AGENCIA') {
       throw conflict('Contrato já saiu da agência; o status não pode mais ser alterado.');
     }
+    if (STATUS_FLUXO_CARTORIO_WCPS.includes(cliente.statusAtual as StatusContrato)) {
+      throw conflict(
+        `Contrato em "${STATUS_LABEL[cliente.statusAtual as StatusContrato]}"; use as ações da aba ` +
+          '"Pagamento ao Vendedor" para avançar essa etapa, não a alteração manual de status.',
+      );
+    }
 
     if (dados.status === 'AGUARDANDO_ENVIO_DEVOLUCAO') {
       const pendentes = await prisma.assinatura.count({
@@ -227,6 +234,131 @@ protocoloRouter.patch(
     });
 
     res.json({ statusAtual: dados.status });
+  }),
+);
+
+const observacoesSchema = z.object({ observacoes: textoOpcional });
+
+/**
+ * POST /api/protocolo/:clienteId/enviar-cartorio
+ * Envia o contrato para registro no cartório. Só a partir de
+ * TODAS_ASSINATURAS_COLETADAS - etapa linear, não dá para pular.
+ */
+protocoloRouter.post(
+  '/:clienteId/enviar-cartorio',
+  ah(async (req, res) => {
+    const dados = observacoesSchema.parse(req.body);
+    const usuario = sessao(req);
+
+    const cliente = await prisma.cliente.findUnique({ where: { id: req.params.clienteId } });
+    if (!cliente) throw notFound('Cliente/contrato não encontrado.');
+    if (cliente.statusAtual !== 'TODAS_ASSINATURAS_COLETADAS') {
+      throw conflict(
+        'Só é possível enviar para o cartório depois que as 4 assinaturas forem coletadas ' +
+          `(status atual: ${STATUS_LABEL[cliente.statusAtual as StatusContrato] ?? 'sem protocolo de entrada'}).`,
+      );
+    }
+
+    await prisma.$transaction((tx) =>
+      aplicarStatus(tx, {
+        clienteId: cliente.id,
+        statusNovo: 'AGUARDANDO_REGISTRO_CARTORIO',
+        usuarioId: usuario.sub,
+        motivo: 'Enviado para registro no cartório',
+        observacoes: dados.observacoes,
+      }),
+    );
+
+    await auditar(req, {
+      acao: 'CONTRATO_ENVIADO_CARTORIO',
+      entidadeAfetada: 'Cliente',
+      entidadeId: cliente.id,
+      detalhes: { numeroContrato: cliente.numeroContrato, observacoes: dados.observacoes },
+    });
+
+    res.json({ statusAtual: 'AGUARDANDO_REGISTRO_CARTORIO' });
+  }),
+);
+
+/**
+ * POST /api/protocolo/:clienteId/confirmar-retorno-cartorio
+ * Confirma que o contrato voltou registrado do cartório e o envia para
+ * análise/liberação de pagamento no WCPS.
+ */
+protocoloRouter.post(
+  '/:clienteId/confirmar-retorno-cartorio',
+  ah(async (req, res) => {
+    const dados = observacoesSchema.parse(req.body);
+    const usuario = sessao(req);
+
+    const cliente = await prisma.cliente.findUnique({ where: { id: req.params.clienteId } });
+    if (!cliente) throw notFound('Cliente/contrato não encontrado.');
+    if (cliente.statusAtual !== 'AGUARDANDO_REGISTRO_CARTORIO') {
+      throw conflict(
+        'Este contrato não está aguardando registro no cartório ' +
+          `(status atual: ${STATUS_LABEL[cliente.statusAtual as StatusContrato] ?? 'sem protocolo de entrada'}).`,
+      );
+    }
+
+    await prisma.$transaction((tx) =>
+      aplicarStatus(tx, {
+        clienteId: cliente.id,
+        statusNovo: 'AGUARDANDO_PAGAMENTO_WCPS',
+        usuarioId: usuario.sub,
+        motivo: 'Retorno do cartório confirmado; enviado para pagamento WCPS',
+        observacoes: dados.observacoes,
+      }),
+    );
+
+    await auditar(req, {
+      acao: 'CONTRATO_RETORNO_CARTORIO_CONFIRMADO',
+      entidadeAfetada: 'Cliente',
+      entidadeId: cliente.id,
+      detalhes: { numeroContrato: cliente.numeroContrato, observacoes: dados.observacoes },
+    });
+
+    res.json({ statusAtual: 'AGUARDANDO_PAGAMENTO_WCPS' });
+  }),
+);
+
+/**
+ * POST /api/protocolo/:clienteId/confirmar-pagamento-wcps
+ * Confirma que o WCPS liberou o pagamento ao vendedor. Encerra o processo:
+ * o contrato fica FINALIZADO (arquivado fisicamente na agência).
+ */
+protocoloRouter.post(
+  '/:clienteId/confirmar-pagamento-wcps',
+  ah(async (req, res) => {
+    const dados = observacoesSchema.parse(req.body);
+    const usuario = sessao(req);
+
+    const cliente = await prisma.cliente.findUnique({ where: { id: req.params.clienteId } });
+    if (!cliente) throw notFound('Cliente/contrato não encontrado.');
+    if (cliente.statusAtual !== 'AGUARDANDO_PAGAMENTO_WCPS') {
+      throw conflict(
+        'Este contrato não está aguardando pagamento WCPS ' +
+          `(status atual: ${STATUS_LABEL[cliente.statusAtual as StatusContrato] ?? 'sem protocolo de entrada'}).`,
+      );
+    }
+
+    await prisma.$transaction((tx) =>
+      aplicarStatus(tx, {
+        clienteId: cliente.id,
+        statusNovo: 'FINALIZADO',
+        usuarioId: usuario.sub,
+        motivo: 'Pagamento WCPS confirmado; processo finalizado e contrato arquivado',
+        observacoes: dados.observacoes,
+      }),
+    );
+
+    await auditar(req, {
+      acao: 'CONTRATO_PAGAMENTO_WCPS_CONFIRMADO',
+      entidadeAfetada: 'Cliente',
+      entidadeId: cliente.id,
+      detalhes: { numeroContrato: cliente.numeroContrato, observacoes: dados.observacoes },
+    });
+
+    res.json({ statusAtual: 'FINALIZADO' });
   }),
 );
 

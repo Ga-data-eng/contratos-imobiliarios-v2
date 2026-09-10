@@ -27,6 +27,9 @@ export const STATUS_CONTRATO = [
   'AGUARDANDO_ASSINATURA_SUPERVISOR',
   'AGUARDANDO_ASSINATURA_CLIENTE',
   'TODAS_ASSINATURAS_COLETADAS',
+  'AGUARDANDO_REGISTRO_CARTORIO',
+  'AGUARDANDO_PAGAMENTO_WCPS',
+  'FINALIZADO',
   'AGUARDANDO_ENVIO_DEVOLUCAO',
   'SAIDA_DA_AGENCIA',
 ] as const;
@@ -39,6 +42,9 @@ export const STATUS_LABEL: Record<StatusContrato, string> = {
   AGUARDANDO_ASSINATURA_SUPERVISOR: 'Aguardando assinatura Supervisor',
   AGUARDANDO_ASSINATURA_CLIENTE: 'Aguardando assinatura Cliente',
   TODAS_ASSINATURAS_COLETADAS: 'Todas assinaturas coletadas',
+  AGUARDANDO_REGISTRO_CARTORIO: 'Aguardando registro no cartório',
+  AGUARDANDO_PAGAMENTO_WCPS: 'Aguardando pagamento WCPS',
+  FINALIZADO: 'Finalizado (arquivado)',
   AGUARDANDO_ENVIO_DEVOLUCAO: 'Aguardando envio/devolução',
   SAIDA_DA_AGENCIA: 'Saída da agência',
 };
@@ -51,6 +57,9 @@ export const STATUS_CLASSE: Record<StatusContrato, string> = {
   AGUARDANDO_ASSINATURA_SUPERVISOR: 'bg-amber-100 text-amber-800 ring-amber-200',
   AGUARDANDO_ASSINATURA_CLIENTE: 'bg-orange-100 text-orange-800 ring-orange-200',
   TODAS_ASSINATURAS_COLETADAS: 'bg-emerald-100 text-emerald-800 ring-emerald-200',
+  AGUARDANDO_REGISTRO_CARTORIO: 'bg-indigo-100 text-indigo-800 ring-indigo-200',
+  AGUARDANDO_PAGAMENTO_WCPS: 'bg-cyan-100 text-cyan-800 ring-cyan-200',
+  FINALIZADO: 'bg-emerald-700 text-white ring-emerald-800',
   AGUARDANDO_ENVIO_DEVOLUCAO: 'bg-violet-100 text-violet-800 ring-violet-200',
   SAIDA_DA_AGENCIA: 'bg-slate-200 text-slate-700 ring-slate-300',
 };
@@ -62,6 +71,23 @@ export const STATUS_MANUAIS: StatusContrato[] = [
   'AGUARDANDO_ASSINATURA_SUPERVISOR',
   'AGUARDANDO_ASSINATURA_CLIENTE',
   'AGUARDANDO_ENVIO_DEVOLUCAO',
+];
+
+/**
+ * Etapa de pagamento ao vendedor (cartório -> WCPS -> finalizado). Controlada
+ * pela tela dedicada, não pelo seletor manual de status.
+ */
+export const STATUS_FLUXO_CARTORIO_WCPS: StatusContrato[] = [
+  'AGUARDANDO_REGISTRO_CARTORIO',
+  'AGUARDANDO_PAGAMENTO_WCPS',
+  'FINALIZADO',
+];
+
+/** Status a partir dos quais a saída do contrato é considerada normal (sem justificativa). */
+export const STATUS_LIBERADOS_PARA_SAIDA: StatusContrato[] = [
+  'TODAS_ASSINATURAS_COLETADAS',
+  'AGUARDANDO_ENVIO_DEVOLUCAO',
+  'FINALIZADO',
 ];
 
 export const ORIGENS = ['EMPREENDIMENTO', 'CAPTACAO_LIVRE'] as const;

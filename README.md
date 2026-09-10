@@ -257,11 +257,16 @@ console. Uma assinatura já coletada também não pode ser sobrescrita (HTTP 409
 
 ## Regras de negócio
 
-**Status do contrato** (os 8 do prompt):
+**Status do contrato** (os 8 do prompt original, mais 3 da etapa de pagamento ao vendedor):
 
 `RECEBIDO_NA_AGENCIA` → `AGUARDANDO_ASSINATURA_GERENTE_ADM` → `AGUARDANDO_ASSINATURA_GERENTE_GERAL`
 → `AGUARDANDO_ASSINATURA_SUPERVISOR` → `AGUARDANDO_ASSINATURA_CLIENTE` →
-`TODAS_ASSINATURAS_COLETADAS` → `AGUARDANDO_ENVIO_DEVOLUCAO` → `SAIDA_DA_AGENCIA`
+`TODAS_ASSINATURAS_COLETADAS` → `AGUARDANDO_REGISTRO_CARTORIO` → `AGUARDANDO_PAGAMENTO_WCPS` →
+`FINALIZADO`
+
+Paralelamente, `AGUARDANDO_ENVIO_DEVOLUCAO` → `SAIDA_DA_AGENCIA` continua existindo como saída
+genérica/excepcional (entrega direta ao cliente, devolução avulsa), independente da etapa de
+pagamento ao vendedor.
 
 Quem controla o quê:
 
@@ -270,8 +275,19 @@ Quem controla o quê:
 | `RECEBIDO_NA_AGENCIA` | Protocolo de entrada |
 | `AGUARDANDO_ASSINATURA_*` | Automático a cada assinatura, ou manualmente pela tela do contrato |
 | `TODAS_ASSINATURAS_COLETADAS` | **Só o sistema**, quando as 4 assinaturas existem |
+| `AGUARDANDO_REGISTRO_CARTORIO` | Aba "Pagamento ao Vendedor" → enviar para o cartório |
+| `AGUARDANDO_PAGAMENTO_WCPS` | Aba "Pagamento ao Vendedor" → confirmar retorno do cartório |
+| `FINALIZADO` | Aba "Pagamento ao Vendedor" → confirmar pagamento WCPS (contrato arquivado) |
 | `AGUARDANDO_ENVIO_DEVOLUCAO` | Manual, e **bloqueado** enquanto houver assinatura pendente |
 | `SAIDA_DA_AGENCIA` | Protocolo de saída |
+
+**Etapa de pagamento ao vendedor** (aba dedicada `/contratos/:id/cartorio-wcps`, linear e sem
+pular etapa): depois de `TODAS_ASSINATURAS_COLETADAS`, o contrato é enviado para registro no
+cartório; ao voltar registrado, é enviado ao WCPS para análise e liberação do pagamento ao
+vendedor; confirmado o pagamento, o processo é `FINALIZADO` e o contrato fica arquivado
+fisicamente na agência (dados cadastrais travados, como em `SAIDA_DA_AGENCIA`). O seletor manual
+de status (`PATCH /protocolo/:id/status`) é bloqueado enquanto o contrato está numa dessas 3
+etapas — só a aba dedicada avança ou o faz.
 
 **Permissão de assinatura** (pelo cargo do usuário logado):
 
@@ -331,7 +347,10 @@ exigem `Authorization: Bearer <token>`.
 |---|---|---|
 | `POST` | `/protocolo/entrada` | `{ clienteId, entreguePor, origem, observacoes }` |
 | `POST` | `/protocolo/saida` | `{ clienteId, recebidoPor, destino, observacoes, justificativa }` |
-| `PATCH` | `/protocolo/:clienteId/status` | `{ status, observacoes }` — apenas status manuais. |
+| `PATCH` | `/protocolo/:clienteId/status` | `{ status, observacoes }` — apenas status manuais; bloqueado durante a etapa de pagamento ao vendedor. |
+| `POST` | `/protocolo/:clienteId/enviar-cartorio` | `{ observacoes }`. Exige `TODAS_ASSINATURAS_COLETADAS`. |
+| `POST` | `/protocolo/:clienteId/confirmar-retorno-cartorio` | `{ observacoes }`. Exige `AGUARDANDO_REGISTRO_CARTORIO`. |
+| `POST` | `/protocolo/:clienteId/confirmar-pagamento-wcps` | `{ observacoes }`. Exige `AGUARDANDO_PAGAMENTO_WCPS`; resulta em `FINALIZADO`. |
 | `GET` | `/protocolo/movimentacoes?clienteId=&limite=` | Movimentações recentes. |
 
 ### Assinaturas, histórico e indicadores
@@ -364,6 +383,7 @@ O corpo sempre traz `{ "erro": "mensagem em português" }`.
 | `/contratos/novo`, `/contratos/:id/editar` | Cadastro de cliente/contrato com origem empreendimento × captação livre |
 | `/contratos/:id` | Ficha: dados, assinaturas, protocolo (entrada/saída/status), movimentações |
 | `/contratos/:id/assinaturas` | Os 4 campos de assinatura com captura em canvas |
+| `/contratos/:id/cartorio-wcps` | Etapa de pagamento ao vendedor: cartório → WCPS → finalizado |
 | `/contratos/:id/historico` | Timeline + exportação em PDF |
 | `/protocolo` | Busca rápida do contrato + movimentações recentes |
 | `/cadastros` | Empreendimentos e parceiros imobiliários |

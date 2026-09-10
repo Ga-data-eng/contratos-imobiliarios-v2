@@ -33,6 +33,9 @@ export const STATUS_CONTRATO = [
   'AGUARDANDO_ASSINATURA_SUPERVISOR',
   'AGUARDANDO_ASSINATURA_CLIENTE',
   'TODAS_ASSINATURAS_COLETADAS',
+  'AGUARDANDO_REGISTRO_CARTORIO',
+  'AGUARDANDO_PAGAMENTO_WCPS',
+  'FINALIZADO',
   'AGUARDANDO_ENVIO_DEVOLUCAO',
   'SAIDA_DA_AGENCIA',
 ] as const;
@@ -45,9 +48,25 @@ export const STATUS_LABEL: Record<StatusContrato, string> = {
   AGUARDANDO_ASSINATURA_SUPERVISOR: 'AGUARDANDO ASSINATURA SUPERVISOR',
   AGUARDANDO_ASSINATURA_CLIENTE: 'AGUARDANDO ASSINATURA CLIENTE',
   TODAS_ASSINATURAS_COLETADAS: 'TODAS ASSINATURAS COLETADAS',
+  AGUARDANDO_REGISTRO_CARTORIO: 'AGUARDANDO REGISTRO NO CARTÓRIO',
+  AGUARDANDO_PAGAMENTO_WCPS: 'AGUARDANDO PAGAMENTO WCPS',
+  FINALIZADO: 'FINALIZADO (ARQUIVADO)',
   AGUARDANDO_ENVIO_DEVOLUCAO: 'AGUARDANDO ENVIO/DEVOLUÇÃO',
   SAIDA_DA_AGENCIA: 'SAÍDA DA AGÊNCIA',
 };
+
+/**
+ * Etapa de pagamento ao vendedor: registro em cartório -> envio ao WCPS ->
+ * pagamento confirmado. Controlada por endpoints dedicados (ver
+ * protocolo.routes.ts), nunca pelo PATCH genérico de status - por isso não
+ * entra em STATUS_MANUAIS, e o próprio PATCH genérico bloqueia mudanças
+ * manuais enquanto o contrato estiver em uma dessas etapas.
+ */
+export const STATUS_FLUXO_CARTORIO_WCPS: StatusContrato[] = [
+  'AGUARDANDO_REGISTRO_CARTORIO',
+  'AGUARDANDO_PAGAMENTO_WCPS',
+  'FINALIZADO',
+];
 
 /**
  * Status que o usuario pode aplicar manualmente pela tela de protocolo.
@@ -120,4 +139,5 @@ export type StatusAssinatura = (typeof STATUS_ASSINATURA)[number];
 export const STATUS_LIBERADOS_PARA_SAIDA: StatusContrato[] = [
   'TODAS_ASSINATURAS_COLETADAS',
   'AGUARDANDO_ENVIO_DEVOLUCAO',
+  'FINALIZADO',
 ];

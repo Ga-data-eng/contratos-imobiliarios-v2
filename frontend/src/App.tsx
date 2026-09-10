@@ -8,6 +8,7 @@ import Contratos from './pages/Contratos';
 import ContratoForm from './pages/ContratoForm';
 import ContratoDetalhe from './pages/ContratoDetalhe';
 import Assinaturas from './pages/Assinaturas';
+import CartorioWcps from './pages/CartorioWcps';
 import Historico from './pages/Historico';
 import Protocolo from './pages/Protocolo';
 import Cadastros from './pages/Cadastros';
@@ -72,6 +73,14 @@ export default function App() {
         element={
           <Protegido>
             <Assinaturas />
+          </Protegido>
+        }
+      />
+      <Route
+        path="/contratos/:id/cartorio-wcps"
+        element={
+          <Protegido>
+            <CartorioWcps />
           </Protegido>
         }
       />
