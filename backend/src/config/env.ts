@@ -1,6 +1,18 @@
 import 'dotenv/config';
 
 /**
+ * Remove um par de aspas (simples ou duplas) envolvendo todo o valor.
+ * Alguns paineis de hospedagem (Vercel incluso) colam o valor exatamente como
+ * digitado no campo — se alguem copiar de um arquivo .env no estilo
+ * `CHAVE="valor"`, as aspas viram parte literal da string, e "8h" com aspas
+ * nao é um timespan valido para o jsonwebtoken (nem uma URL valida, etc).
+ */
+function semAspas(valor: string): string {
+  const m = /^(["'])(.*)\1$/.exec(valor);
+  return m ? m[2] : valor;
+}
+
+/**
  * Le uma variavel de ambiente tratando string vazia/só espaços como ausente.
  * Necessário porque `??` só cai no padrão quando o valor é `undefined`/`null`
  * — um provedor de hospedagem que grava a variável como string vazia (por um
@@ -8,12 +20,14 @@ import 'dotenv/config';
  * adiante (ex.: `expiresIn: ''` no jsonwebtoken).
  */
 function opcional(nome: string, padrao: string): string {
-  const valor = process.env[nome]?.trim();
+  const bruto = process.env[nome]?.trim();
+  const valor = bruto ? semAspas(bruto).trim() : '';
   return valor ? valor : padrao;
 }
 
 function obrigatorio(nome: string, padrao?: string): string {
-  const valor = process.env[nome]?.trim() || padrao;
+  const bruto = process.env[nome]?.trim();
+  const valor = (bruto ? semAspas(bruto).trim() : '') || padrao;
   if (!valor) {
     throw new Error(
       `Variavel de ambiente ${nome} nao definida. Copie backend/.env.example para backend/.env.`,
@@ -43,7 +57,7 @@ export const env = {
   jwtExpiresIn: opcional('JWT_EXPIRES_IN', '8h'),
   corsOrigins: opcional('CORS_ORIGIN', 'http://localhost:5173')
     .split(',')
-    .map((o) => o.trim())
+    .map((o) => semAspas(o.trim()).trim())
     .filter(Boolean),
   alertaDiasParado: Number(opcional('ALERTA_DIAS_PARADO', '5')),
 };
