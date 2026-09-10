@@ -36,7 +36,6 @@ export function errorHandler(erro: unknown, _req: Request, res: Response, _next:
   console.error('[erro não tratado]', erro);
   return res.status(500).json({
     erro: 'Erro interno do servidor.',
-    // DIAGNOSTICO_TEMPORARIO
-    detalhes: String(erro),
+    detalhes: env.isProduction ? undefined : String(erro),
   });
 }
