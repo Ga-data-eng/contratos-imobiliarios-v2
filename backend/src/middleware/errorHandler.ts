@@ -34,16 +34,8 @@ export function errorHandler(erro: unknown, _req: Request, res: Response, _next:
   }
 
   console.error('[erro não tratado]', erro);
-
-  // Diagnóstico sob demanda: só expõe a mensagem completa do erro em
-  // produção se o chamador provar que conhece o JWT_SECRET (via header).
-  // Evita vazar stack trace para qualquer visitante, sem precisar de deploys
-  // extras para ligar/desligar um modo de depuração.
-  const diagnosticoAutorizado = _req.headers['x-debug-secret'] === env.jwtSecret;
-  const mostrarDetalhes = !env.isProduction || diagnosticoAutorizado;
-
   return res.status(500).json({
     erro: 'Erro interno do servidor.',
-    detalhes: mostrarDetalhes ? String(erro) : undefined,
+    detalhes: env.isProduction ? undefined : String(erro),
   });
 }
