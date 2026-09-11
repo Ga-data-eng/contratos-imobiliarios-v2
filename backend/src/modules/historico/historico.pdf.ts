@@ -97,15 +97,6 @@ export function gerarPdfHistorico(res: Response, dados: DadosPdf) {
         .text(
           `Responsável: ${ass.responsavelNome ?? '—'}${ass.responsavelEmail ? ` (${ass.responsavelEmail})` : ''} · ${dataHoraBR(ass.dataHora)}`,
         );
-      const imagem = extrairImagem(ass.assinaturaDigital);
-      if (imagem) {
-        try {
-          garantirEspaco(doc, 70);
-          doc.image(imagem, { fit: [170, 55] });
-        } catch {
-          doc.fillColor(CINZA).text('[imagem da assinatura não pôde ser renderizada]');
-        }
-      }
     }
     doc.moveDown(0.5);
   }
@@ -136,9 +127,14 @@ export function gerarPdfHistorico(res: Response, dados: DadosPdf) {
   }
 
   // ------------------------------------------------------------------ rodapés
+  // O texto fica dentro da margem inferior de propósito (perto da borda da
+  // página). Sem zerar `margins.bottom` antes, o PDFKit acha que o conteúdo
+  // "não cabe" ali e insere uma página extra em branco só para o rodapé.
   const faixa = doc.bufferedPageRange();
+  const margemInferiorOriginal = doc.page.margins.bottom;
   for (let i = 0; i < faixa.count; i += 1) {
     doc.switchToPage(faixa.start + i);
+    doc.page.margins.bottom = 0;
     doc.fontSize(7).fillColor(CINZA).font('Helvetica');
     doc.text(
       `Emitido em ${dataHoraBR(new Date())} por ${geradoPor} · Página ${i + 1} de ${faixa.count} · Registros de auditoria são imutáveis.`,
@@ -146,6 +142,7 @@ export function gerarPdfHistorico(res: Response, dados: DadosPdf) {
       doc.page.height - 30,
       { width: doc.page.width - 80, align: 'center', lineBreak: false },
     );
+    doc.page.margins.bottom = margemInferiorOriginal;
   }
 
   doc.end();
@@ -170,15 +167,4 @@ function campos(doc: PDFKit.PDFDocument, pares: [string, string][]) {
 
 function garantirEspaco(doc: PDFKit.PDFDocument, altura: number) {
   if (doc.y + altura > doc.page.height - 60) doc.addPage();
-}
-
-function extrairImagem(dataUrl?: string | null): Buffer | null {
-  if (!dataUrl) return null;
-  const match = /^data:image\/(png|jpeg);base64,(.+)$/.exec(dataUrl);
-  if (!match) return null;
-  try {
-    return Buffer.from(match[2], 'base64');
-  } catch {
-    return null;
-  }
 }
